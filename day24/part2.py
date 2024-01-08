@@ -3,13 +3,10 @@ import numpy as np
 # I failed today, I gave up and got a hint that you can brute force velocity
 # values rather than time values like I was doing before.
 # In addition, considering the frame of reference of the rock is much simpler.
-# There was no linear algebra trick I'm just an idiot. 
+# It still didn't work due to float precision issues involving the determinant.
+# I think the right solution would be to use rationals, but rounding is good 
+# enough here.
 
-# This script still doesn't work though, I don't know why and I don't care
-# any more.
-
-def isinteger(x):
-    return np.equal(np.mod(x, 1), 0)
 
 stones = []
 for line in open('ex').readlines():
@@ -18,30 +15,51 @@ for line in open('ex').readlines():
     v = np.array([int(x) for x in raw_vel.split(', ')])
     stones.append((p, v))
 
-for x in range(-10, 10):
-    print('.',end='')
-    for y in range(-10, 10):
-        for z in range(-10, 10):
-            v = np.array([x, y, z])
+for x in range(-300, 300):
+    print(x)
+    for y in range(-300, 300):
+        for z in range(-300, 300):
             fail = False
             p0 = stones[0][0]
-            v0 = stones[0][1]-v
-            ipt = None
-            for s in stones:
-                vs = s[1] - v
-                m = np.array([v0, -vs, p0-s[0]])
-                det = np.linalg.det(m)
-                if det == 0:
+            v0 = (stones[0][1][0] - x, stones[0][1][1] - y, stones[0][1][2] - z)
+            pt = None
+            for s in stones[1:]:
+                vs = (s[1][0] - x, s[1][1] - y, s[1][2] - z)
+
+                mat = (v0[0], -vs[0],
+                       v0[1], -vs[1])
+                invdet = mat[0]*mat[3] - mat[1]*mat[2]
+                if invdet == 0:
                     fail = True
                     break
-                if ipt is None:
-                    ipt = np.linalg.inv(m)
+                invmat = (mat[3]/invdet, -mat[1]/invdet,
+                        -mat[2]/invdet, mat[0]/invdet)
+                pvec = (s[0][0] - p0[0], s[0][1] - p0[1])
+                t1 = round(invmat[0] * pvec[0] + invmat[1] * pvec[1])
+                t2 = round(invmat[2] * pvec[0] + invmat[3] * pvec[1])
+                if t1 < 0 or t2 < 0:
+                    fail = True
+                    break
+       
+                cpt = (s[0][0] + vs[0] * t2,
+                        s[0][1] + vs[1] * t2,
+                        s[0][2] + vs[2] * t2)
+                if pt is None:
+                    pt = cpt
+                elif pt != cpt:
+                    fail = True
+                    break
+
             if not fail:
-                print('found!', v)
-                print(ipt)
+                print('found!', (x,y,z))
+                print(pt)
+                print(sum(pt))
+                exit(0)
 
 print()
-exit(0)
+exit(1)
+
+# everything below here is nothing
 
 # pick t0
 # find plane of line and point?
